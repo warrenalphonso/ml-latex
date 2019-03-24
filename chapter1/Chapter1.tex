@@ -1,0 +1,54 @@
+\documentclass[11pt, a4paper]{article}
+%these don't actually print anything; need to call \maketitle
+\author{Warren Alphonso}
+\title{Chapter 1: The Machine Learning Landscape}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\section{Types of Machine Learning Systems}
+
+\noindent
+\textbf{Supervised Learning}: training data that's fed to the algorithm includes the desired solutions, called \textsl{labels}.
+\begin{itemize}
+\item \textsl{Classification} and \textsl{Regression} are examples of supervised learning.
+\item \textsl{Logistic regression} is commonly used for classification, not to be confused with classification. 
+\end{itemize}
+
+\noindent
+\textbf{Unsupervised Learning}: training data is unlabeled.
+\begin{itemize}
+	\item Clustering 
+	\begin{itemize}
+		\item k-Means
+		\item Hierarchical Cluster Analysis (HCA)
+		\item Expectation Maximization 
+	\end{itemize}
+
+	\item Visualization and dimensionality reduction
+	\begin{itemize}
+		\item Principal Component Analysis (PCA)
+		\item Kernel PCA 
+		\item Locally-Linear Embeddings (LLE)
+		\item t-distributed Stochastic Neighbor-Embedding (t-SNE)
+	\end{itemize}
+
+	\item Association rule learning 
+	\begin{itemize}
+		\item Apriori 
+		\item Eclat
+	\end{itemize}
+\end{itemize}
+
+A related task is \textsl{dimensionality reduction}: simplifying the data without losing too much information. One way to do this is through \textsl{feature extraction}, merging several correlated features into one. \\
+
+\noindent
+\textbf{Semisupervised Learning}: Semisupervised learning algorithms are usually a combination of supervised and unsupervised approaches. 
+\begin{itemize}
+	\item Deep Belief Networks (DBNs) are based on unsupervised 			components called \textsl{restricted Boltzmann machines 			(RBMs)} stacked on top of each other and then fine tuned 			using supervised learning. 
+\end{itemize}
+
+\noindent
+\textbf{Reinforcement Learning}: A learning system reacts to rewards or penalties to craft the optimal policy, or course of action. 
+
+\end{document}
