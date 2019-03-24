@@ -1,0 +1,210 @@
+\documentclass[letterpaper]{article}
+
+\usepackage{fancyhdr}
+\usepackage{caption}
+\usepackage{amsmath}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Warren Alphonso}
+\lhead{Chapter 5: Support Vector Machines}
+\cfoot{\thepage}
+
+\setlength{\parindent}{0cm}
+
+\title{Chapter 5: Support Vector Machines}
+\author{Warren Alphonso}
+\date{March 2019}
+
+\begin{document}
+\maketitle
+
+\section{Linear SVM Classification}
+The decision boundary of a Support Vector Machine classifier not only separates the two classes but also stays as far away from the closest training instances as possible. Think of an SVM classifier as fitting the widest possible street between the classes. This is called \textsl{large margin classification}. 
+
+Note that adding more training instances "off the street" will not affect the decision boundary: it is \textbf{fully determined by instances located on the edge} of the street. These instances are called the \textsl{support vectors}. 
+
+SVMs are sensitive to feature scales. After feature scaling (again using Scikit-Learn's \texttt{StandardScaler}), the decision boundary looks much better. 
+
+\subsection{Soft Margin Classification}
+If we strictly impose that all instances be off the street and on the correct side, this is called \textsl{hard margin classification}. There are two main issues with hard margin classification: 
+
+\begin{enumerate}
+	\item It only works if the data is linearly separable. 
+	\item It is sensitive to outliers. 
+\end{enumerate}
+
+To avoid these issues, it is preferable to use a more flexible model. We must find a balance between keeping the street as large as possible and limiting the \textsl{margin violations}. This is called \textsl{soft margin classification}. 
+
+In Scikit-Learn's SVM classes, we can control this balance using the \texttt{C} hyperparameter: a smaller \texttt{C} value leads to a wider street but more margin violations. Using a high \texttt{C} value leads to a smaller margin and fewer margin violations. If an SVM model is overfitting, reducing \texttt{C} might help. 
+
+\newpage
+We can train a linear SVM model using the \textsl{hinge} loss function to detect Iris=Virginica flowers: 
+
+\begin{verbatim}
+import numpy as np
+from sklearn import datasets
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVC
+
+iris = datasets.load_iris()
+X = iris["data"][:, (2, 3)]  # petal length, petal width
+y = (iris["target"] == 2).astype(np.float64)  # Iris-Virginica
+
+svm_clf = Pipeline([
+        ("scaler", StandardScaler()),
+        ("linear_svc", LinearSVC(C=1, loss="hinge", random_state=42)),
+    ])
+
+svm_clf.fit(X, y)
+\end{verbatim}
+
+Alternatively, we can use the \texttt{SVC} class, using \texttt{SVC(kernel="linear", C=1)}, but it is much slower with large training sets. Another option is to use the \texttt{SGDClassifier} class, with \texttt{SGDClassifier(loss="hinge", alpha=1/(m*C))}. This applies regular Stochastic Gradient Descent to train a linear SVM classifier. It does not converge as quickly as the \texttt{LinearSVC} class, but it can be useful to handle huge datasets. 
+
+\section{Nonlinear SVM classification}
+One approach to handling nonlinear datasets is to add more features, such as polynomial features. Adding a second feature $x_{2} = (x_{1})^{2}$ may cause the resulting quadratic graph to be linearly separable. 
+
+To implement this idea in Scikit-Learn, we can create a \texttt{Pipeline} containing a \texttt{PolynomialFeatures} transformer, followed by a \texttt{StandardScaler} and a \texttt{LinearSVC}. 
+
+\subsection{Polynomial Kernel}
+Adding polynomial features is simple to implement and can work great with many ML algorithms, but a low polynomial degree cannot deal with very complex datasets and a high polynomial degree makes the model too slow. 
+
+When using SVMs, we can apply a mathematical technique called the \textsl{kernel trick} (explained later). It makes it possible to get the same result as if you added many polynomial features, without actually having to add them. This means we avoid the combinatorial explosion of number of features. Implementation in Sci-kit Learn:
+\begin{verbatim}
+from sklearn.svm import SVC
+
+poly_kernel_svm_clf = Pipeline([
+        ("scaler", StandardScaler()),
+        ("svm_clf", SVC(kernel="poly", degree=3, coef0=1, C=5))
+    ])
+poly_kernel_svm_clf.fit(X, y)
+\end{verbatim}
+The hyperparameter \texttt{coef0} controls how much the model is influenced by high-degree polynomials versus low-degree polynomials. 
+
+\subsection{Adding Similarity Features}
+Another technique to tackle nonlinear problems is to add features computed using a \textsl{similarity function} that measures how each instance resembles a particular \textsl{landmark}. For example, using a one-dimensional dataset, we add two landmarks at $x_{1} = -2$ and $x_{2} = 1$. Let's define the similarity function to be the Gaussian \textsl{Radial Basis Function} with $\gamma$ = 0.3. 
+
+$$ \phi_{\gamma}(x, \ell) = exp(- \gamma \mid \mid x - \ell \mid \mid ^{2}) $$
+\captionof{figure}{Gaussian RBF} 
+
+It is a bell-shaped function varying from 0 (very far from landmark) to 1 (at the landmark). To compute the new features, we look at the instance $x_{1} = -1$: it is located a distance of 1 from first landmark and distance of 2 from second landmark. Therefore, its new features are $x_{2} = exp(-0.3 * 1^{2}) \approx 0.74$ and $x_{3} = exp(-0.3 * 2^{2}) \approx 0.30$. These become the x and y values, respectively, of the transformed dataset, which is now linearly separable. 
+
+When deciding how to select landmarks, the simplest approach is to create a landmark at every instance in the dataset. This creates many dimensions and thus increases the chances that the transformed training set will be linearly separable. The downside is that a training set with $m$ instances and $n$ features gets transformed into a training set with $m$ instances and $m$ features. If your training set is very large, you end up with equally large number of features. 
+
+\section{SVM Regression} 
+The SVM algorithm is versatile: it support linear and nonlinear classification, but it also supports linear and nonlinear regression. The trick is to \textsl{reverse} the objective: instead of trying to fit the largest possible street between two classes while limiting margin violations, SVM Regression tries to fit as many instances as possible \textsl{on} the street while limiting margin violations (instances \textsl{off} the street). 
+
+\newpage
+We can use Scikit-Learn's \texttt{LinearSVR} class to perform linear SVM Regression: 
+\begin{verbatim}
+from sklearn.svm import LinearSVR
+
+svm_reg = LinearSVR(epsilon=1.5, random_state=42)
+svm_reg.fit(X, y)
+\end{verbatim}
+
+\section{Under the Hood}
+This section deals with the math behind a lot of the tricks used in earlier parts of this chapter. Here we will use a different convention: the bias term will be called $b$ and the feature weights vector will be called $w$. No bias feature will be added to the input feature vectors. 
+
+\subsection{Decision Functions and Predictions}
+The linear SVM classifier model predicts the class of a new instance $x$ by simply computing the decision function $w^{T}x + b$. If the result is positive, the predicted class $\hat{y}$ si the positive class (1), else it is the negative class (0). 
+
+$$ \hat{y} = 
+\begin{cases}
+0 & \text{if } w^{T}x + b < 0, \\
+1 & \text{if } w^{T}x + b \geq 0
+\end{cases}
+$$
+\captionof{figure}{Linear SVM classifier prediction}
+
+The decision function is $h = w^{T} x + b$. 
+When graphing the points being classified, the \textsl{decision boundary} is the set of points where the decision function is equal to 0. 
+
+\subsection{Training Objective}
+Note that the slope of the decision function is equal to the norm of the weight vector, $\mid \mid w \mid \mid $. If we divide this slope by 2, the points where the decision function is equal to $\pm 1$ are going to be twice as far away from the decision boundary. Dividing slope by 2 will multiply the margin by 2. 
+
+Thus, we want to minimize $\mid \mid w \mid \mid$ to get a large margin, but also want to avoid many margin violations. 
+
+To get the soft margin objective, we need to introduce a \textsl{slack variable} $\zeta^{(i)} \geq 0$ for each instance: $\zeta^{(i)}$ measures \textsl{how much} the i\textsuperscript{th} instance is allowed to violate the margin. Note that we now have two conflicting objectives: making the slack variables as small as possible to reduce margin violations and making $\frac{1}{2} w^{T}w$ as small as possible to increase the margin. This is where the \texttt{C} hyperparameter comes in: it allows us to define the trade-off between these two. 
+\newpage
+$$
+\begin{cases} 
+\underset{w, b, \zeta}{\text{minimize }} \frac{1}{2}w^{T}w + C \sum_{i=1}^{m} \zeta^{(i)}  \\
+\text{subject to } t^{(i)}(w^{T}x^{(i)} + b) \geq 1 - \zeta^{(i)} \text{ and } \zeta^{(i)} \geq 0 \text{ for } i = 1, 2, ..., m
+\end{cases}
+$$
+\captionof{figure}{Soft margin linear SVM classifier objective}
+
+We are minimizing $\frac{1}{2}w^{T}w$, which is equal to $\frac{1}{2} \mid \mid w \mid \mid^{2}$, rather than minimizing $\mid \mid w \mid \mid$. This is because the former has a simple derivative (it is just $w$), while the latter is not differentiable at $w = 0$. Optimization algorithms generally work much better on differentiable functions. 
+
+\subsection{Kernelized SVM}
+Suppose we want to apply a 2\textsuperscript{nd}-degree polynomial transformation to a two-dimensional training set, then train a linear SVM classifier on the transformed training set. 
+
+$$\phi(x) = \phi \begin{pmatrix}
+\begin{pmatrix}
+x_{1} \\
+x_{2}
+\end{pmatrix}
+\end{pmatrix}
+= \begin{pmatrix}
+x_{1}^{2} \\
+\sqrt{2}x_{1}x_{2} \\ 
+x_{2}^{2}
+\end{pmatrix}
+$$
+
+Note the transformed vector is three-dimensional. Now we apply this 2\textsuperscript{nd}-degree polynomial mapping to two vectors $a$ and $b$, and then we compute the dot product. 
+
+\begin{align*}
+\begin{split}
+\phi(a)^{T}\phi(b) & = \begin{pmatrix}
+a_{1}^{2} \\ 
+\sqrt{2}a_{1}a_{2} \\ 
+a_{2}^{2}
+\end{pmatrix} ^{T} \begin{pmatrix}
+b_{1}^{2} \\ 
+\sqrt{2}b_{1}b_{2} \\ 
+b_{2}^{2}
+\end{pmatrix} \\ & 
+= a_{1}^{2}b_{1}^{2} + 2a_{1}b_{1}a_{2}b_{2} + a_{2}^{2}b_{2}^{2} = (a_{1}b_{1} + a_{2}b_{2})^{2} = \begin{pmatrix}
+\begin{pmatrix}
+a_{1} \\
+a_{2}
+\end{pmatrix}^{T}
+\begin{pmatrix}
+b_{1} \\
+b_{2}
+\end{pmatrix}
+\end{pmatrix}^{2} \\ & 
+= (a^{T}b)^{2}
+\end{split}
+\end{align*}
+\captionof{figure}{Kernel trick for a 2\textsuperscript{nd}-degree polynomial mapping}
+
+This means the dot product of the transformed vectors is \textbf{equal to the square of the dot product of the original vectors}: $\phi(a)^{T}\phi(b) = (a^{T}b)^{2}$. 
+
+\newpage
+$$ 
+\underset{\alpha}{\text{minimize }} \frac{1}{2} \sum_{i=1}^{m} \sum_{j=1}^{m} \alpha^{(i)} \alpha^{(j)} t^{(i)} t^{(j)} (x^{(i)})^{T}x^{(j)} - \sum_{i=1}^{m} \alpha^{(i)}
+$$
+\captionof{figure}{Dual form of the linear SVM objective}
+\begin{itemize}
+	\item $\alpha^{i} \geq 0$ for all $i$
+	\item $t$ is 1 for all positive training instances and -1 for all negative instances. 
+\end{itemize} 
+
+This means if we apply the transformation $\phi$ to all training instances, then the dual problem will contain the dot product $\phi(x^{(i)})^{T}\phi(x^{(j)}$. But if $\phi$ is the 2\textsuperscript{nd}-degree polynomial transformation defined above, then we can replace this dot product of transformed vectors simply by $((x^{(i)})^{T}(x^{(j)}))^{2}$. Thus, we do not actually need to apply the transformation since we get the same result by replacing the dot product by its square in the dual problem. This makes the whole process much more computationally efficient. 
+
+Generally, the function $K(a, b) = (a^{T}b)^{2}$ is called the 2\textsuperscript{nd}-degree \textsl{polynomial kernel}. In ML, a \textsl{kernel} is a function capable of computing the dot product $\phi(a)^{T}\phi(b)$ based only on the original vectors $a$ and $b$, without having to compute the transformation $\phi$. 
+
+\textbf{Common kernels}: 
+\begin{itemize}
+	\item \textsl{Linear}: $K(a, b) = a^{T}b $
+	\item \textsl{Polynomial}: $K(a, b) = (\gamma a^{T} b + r)^{d}$ 
+	\item \textsl{Gaussian RBF}: $K(a, b) = exp(-\gamma \mid \mid a - b \mid \mid^{2})$
+	\item \textsl{Sigmoid}: $K(a, b) = tanh(\gamma a^{T}b + r)$
+\end{itemize}
+
+
+\end{document}

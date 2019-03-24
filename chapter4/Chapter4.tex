@@ -1,0 +1,208 @@
+\documentclass[letterpaper]{article}
+
+\usepackage{fancyhdr}
+\usepackage{caption}
+\usepackage{amsmath}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Warren Alphonso}
+\lhead{Chapter 4: Training Models}
+\cfoot{\thepage}
+
+\setlength{\parindent}{0cm}
+
+\title{Chapter 4: Training Models}
+\author{Warren Alphonso}
+\date{March 2019}
+\begin{document}
+
+\maketitle
+
+In this chapter, we explore a Linear Regression model, and two different ways to train it: 
+\begin{enumerate}
+	\item Using an equation to directly compute the model parameters that best fit the model to training set. 
+	
+	\item Using an iterative optimization process, called Gradient Descent.
+\end{enumerate}
+
+\section{Linear Regression}
+A linear model makes a prediction by simply computing a weighted sum of the input features and adding a constant called the \textsl{bias term}. 
+
+\[ \hat{y} = \theta_{0} + \theta_{1}x_{1} + \theta_{2}x_{2} + ... + \theta_{n}x_{n} \]
+\captionof{figure}{Linear Regression model prediction}
+
+\begin{itemize}
+	\item \^{y} is the predicted value.
+	\item $n$ is the number of features. 
+	\item $x_i$ is the $i^\textsuperscript{th}$ feature value. 
+	\item $\theta_{j}$ is the $j^\textsuperscript{th}$ model parameter. 
+\end{itemize}
+
+\[ \hat{y} = h_{\theta}(x) = \theta \cdot x \]
+\captionof{figure}{Vectorized form of Linear Regression model prediction}
+
+\begin{itemize}
+	\item $\theta$ is the model's \textsl{parameter vector}, contianing bias term $\theta_{0}$ and the feature weights $\theta_{1}$ to $\theta_{n}$. 
+	\item x is the instance's \textsl{feature vector}, containing $x_{0}$ to $x_{n}$, with $x_{0}$ always equal to 1. 
+	\item $h_{\theta}$ is the hypothesis function, using the model parameters $\theta$. 
+\end{itemize}
+
+We need to measure how well the model fits the training data. The most common performance measure of a regression model is the Root Mean Square Error (RMSE). Though, in practice, it is simpler to minimize Mean Square Error (MSE) which leads to the same result. 
+
+\[ MSE(X, h_{\theta}) = \frac{1}{m} \sum_{i = 1}^{m} (\theta^{T}x^{(i)} - y^{(i)})^{2} \]
+\captionof{figure}{MSE cost function for Linear Regression model}
+
+\subsection{The Normal Equation}
+To find the value of $\theta$ that minimizes the cost function, we use the \textsl{Normal Equation}, aka Least-Squares regression. 
+
+\[ \hat{\theta} = (X^{T}X)^{-1}X^{T}y \]
+\captionof{figure}{Normal Equation}
+
+\begin{itemize}
+	\item $\hat{\theta}$ is the value of $\theta$ that minimizes the cost function. 
+	\item $y$ is the vector of target values containing $y^{1}$ to $y^{m}$. 
+\end{itemize}
+
+Using \texttt{np.linalg.lstsq} does this for us. It computes $\hat{\theta} = X^{+}y$, where $X^{+}$ is the \textsl{pseudoinverse} of $X$. 
+
+
+The psuedoinverse is computed using a matrix factorization technique called \textsl{Singular Value Decomposition} (SVD) that can decompose training set matrix $X$ into the matrix multiplication of three matrices $U \Sigma V^{T}$. The pseudoinverse is computed as $X^{+} = V\Sigma^{+}U^{T}$. To compute the matrix $\Sigma^{+}$, the algorithm takes $\Sigma$ and sets to zero all values smaller than a tiny threshold value, then it replaces all the non-zero values with their inverse, and finally it transposes the resulting matrix. This is more efficient than computing the Normal Equation, plus it can handle edge cases while Normal Equation won't work if matrix $X^{T}X$ is not invertible. The pseudoinverse is always defined. 
+
+\subsection{Computational Complexity}
+The Normal Equation computes the inverse of $X^{T}X$ which is an $(n+1)(n+1)$ matrix where $n$ is the number of features. The computational complexity of inverting this matrix is about $O(n^{2.4})$ to $O(n^{3})$. SVD approach is about $O(n^{2})$. Both Normal Equation and SVD approach get very slow when the number of features grows large, but both are linear with regards to number of instances in training set, so they handle large training sets efficiently. 
+
+\section{Gradient Descent}
+Gradient Descent measures the local gradient of the error function with regards to the parameter vector $\theta$, and it goes in the direction of descending gradient. Once gradient becomes zero, we're at the minimum. Concretely, we start by filling $\theta$ with random values (random initialization) and then improve it gradually until convergence. \textsl{learning rate} is an important parameter. If the learning rate is too small, then the algorithm will have to go through many iterations to convergence. If it's too high, algorithm diverges with larger and larger values. 
+
+There are two main challenges with Gradient Descent:
+\begin{enumerate}
+	\item a plateau might cause convergence to take a long time
+	\item getting trapped in a local minimum which prevents us from reaching the global minimum
+\end{enumerate}
+
+Fortunately, MSE for Linear Regression models happens to be a convex function so there are no local minima. It's also a continuous function whose slope never changes abruptly. These two things mean Gradient Descent is guaranteed to approach the global minimum. It is \textsl{vital} when using Gradient Descent to ensure that all features have a similar scale (using Scikit-Learn's \texttt{StandardScalar} class), or it will take much longer to converge. 
+
+\subsection{Batch Gradient Descent}
+To implement Gradient Descent, we need to compute the partial derivative of the cost function with regards to each model parameter $\theta_{j}$. 
+
+$$\Delta_{\theta} MSE (\theta) = 
+\begin{pmatrix}
+\frac{\partial}{\partial \theta_{0}} MSE(\theta) \\ \frac{\partial}{\partial \theta_{1}} MSE(\theta) \\ ... \\ \frac{\partial}{\partial \theta_{n}} MSE(\theta)
+\end{pmatrix} = \frac{2}{m}X^{T}(X\theta - y)
+$$
+\captionof{figure}{Gradient vector of the cost function}
+
+Note that this formula does calculations over the \textsl{full} training set X at each Gradient Descent step, hence the name batch Gradient Descent. It is very slow on large training sets. However, Gradient Descent scales well with number of features, so training a Linear Regression model with hundreds of thousands of features is much faster using Gradient Descent as opposed to the Normal Equation or SVD. 
+
+One we we have the gradient vector, which points uphill, we just go in the opposite direction. This means we subtract $\Delta_{\theta} MSE (\theta)$ from $\theta$. This is where learning rate $\eta$ comes into play. Multiply the gradient vector by $\eta$ to determine size of downhill step. 
+
+$$\theta^{(next)} = \theta - \eta\Delta_{\theta}MSE(\theta)$$ 
+\captionof{figure}{Gradient Descent step} 
+
+To find a good learning rate, you can use a grid search. We set a large number of iterations but interrupt the algorithm when the gradient vector becomes tiny. 
+
+\subsection{Stochastic Gradient Descent}
+The main problem with Batch Gradient Descent is it uses the entire training set to compute gradients at every step. At the opposite extreme Stochastic Gradient Descent picks a random instance in the training set at every step and computes the gradient based only on that instance. This makes it possible to train on huge training sets since only one instance needs to be in memory at each iteration. Due to its stochastic (random) nature, this algorithm is much less regular than BGD. Instead of gently decreasing until it reaches the minimum, the cost function will bounce up and down, decreasing only on average. This means the algorithm is more likely to jump out of local minima. 
+
+Ultimately, randomness is good to escape local minima but bad because the algorithm can never settle at the minima. One solution is to gradually reduce the learning rate. The step size starts out large so we can escape local minima, but gets smaller which allows the algorithm to settle at the global minimum. 
+
+\subsection{Mini-batch Gradient Descent}
+Instead of computing the gradients based on the full training set (BGD) or based on just one instance (SGD), Mini-batch Gradient Descent computes gradients on small random sets of instances called \textsl{mini-batches}. The main advantage to MGD is it allows a performance boost from hardware optimization of matrix operations, especially when using GPUs. 
+
+\section{Polynomial Regression}
+Surprisingly, we can actually use a linear model to fit \textsl{nonlinear} data. A simple way to do this is to add powers of each feature as new features, then train a linear model on this extended set of features. This is known as \textsl{Polynomial Regression}. 
+
+\section{Learning Curves}
+High-degree Polynomial Regression will likely overfit the training data. As an example, suppose we have a dataset that follows a quadratic model. A linear model will clearly underfit, but a 300-degree polynomial will severely overfit. 
+
+Previously, we used cross-validation to estimate a model's generalization. Cross-validation says a model that fit the training data well, but performs poorly on testing data, then the model is overfitting. 
+
+Another way to estimate generalization is through \textsl{learning curves}: plots of the model's performance on training set and validation set as a function of training set size. 
+
+The learning curve of an \textbf{underfitting} model shows that training set loss and validation set loss are close together and fairly high. The learning curve of an \textbf{overfitting} model has low error on training data but high error for validation, with a large gap between the two accuracies. 
+
+\subparagraph{The Bias/Variance Tradeoff}
+A model's generalization error can be expressed as the sum of three very different errors:
+\begin{itemize}
+	\item \textsl{Bias}: this part of generalization error is due to wrong assumptions, such as assuming the data is linear when it is actually quadratic. A high-bias model is most likely to underfit training data. 
+	
+	\item \textsl{Variance}: this part is due to the model's excessively sensitivity to small variations in the training data. A model with many degrees of freedom is likely to have high variance and thus overfit the training data. 
+	
+	\item \textsl{Irreducible error}: this part is due to the noisiness of the data itself. The only way to reduce this is to clean up the data. 
+\end{itemize}
+
+Increasing a model's complexity typically increases variance and reduces bias. On the other hand, reducing a model's complexity decreases variance and increases bias. 
+
+\section{Regularized Linear Models}
+A good way to reduce overfitting is to regularize the model: the fewer degrees of freedom, the harder it is to overfit the data. Regularization is achieved by constraining the weights of the model. 
+
+\subsection{Ridge Regression} 
+\textsl{Ridge Regression} is a regularized version of Linear Regression. We add a \textsl{regularization term} equal to $\alpha \sum_{i=1}^{n} \theta_{i}^{2}$ to the cost function. This forces the learning algorithm to not only fit the data but also keep the model weights as small as possible. Note the regularization term should only be added to the cost function during training. The hyperparameter $\alpha$ controls how much you want to regularize the model. If $\alpha$ is very large, then all weights end up close to zero. 
+
+$$ J(\theta) = MSE(\theta) + \alpha \frac{1}{2} \sum_{i=1}^{n} \theta_{i}^{2} $$ 
+\captionof{figure}{Ridge Regression cost function}
+
+Note that bias term $\theta_{0}$ is not regularized since the sum starts at i=1, not 0. It is also crucial to scale the data before performing Ridge Regression because it is sensitive to the scale of the input features. This is true of most regularized models. 
+
+\subsection{Lasso Regression}
+\textsl{Least Absolute Shrinkage and Selection Operator Regression} (Lasso Regression) also adds a regularization term to the cost function, but it uses the $\ell_{1}$ norm of the weight vector instead of half of the square of the $\ell_{2}$ norm. 
+
+$$ J(\theta) = MSE(\theta) + \alpha \sum_{i=1}^{n} \mid \theta_{i} \mid $$ 
+\captionof{figure}{Lasso Regression cost function} 
+
+Lasso Regression tends to completely eliminate the weights of the least important features (ie set them to zero). In other words, Lasso Regression automatically performs feature selection and outputs a \textsl{sparse model}. 
+
+\subsection{Elastic Net}
+Elastic Net is a middle ground between Ridge Regression and Lasso Regression. The Elastic Net cost function has both $\ell_{1}$ and $\ell_{2}$ norm. 
+
+When should you use regression? It is almost always preferable to have regularization. You should prefer Lasso or Elastic Net since they tend to reduce useless features' weights down to zero. In general, Elastic Net is preferred over Lasso since Lasso may behave erratically when number of features is greater than number of training instances. 
+
+\section{Logistic Regression}
+\textsl{Logistic Regression} is commonly used to estimate probability that an instance belongs to a particular class. Just like Linear Regression, a Logistic Regression model computes a weighted sum of the input features plus a bias term, but instead of outputting the result directly like Linear Regression, it outputs the \textsl{logistic} of this result. 
+
+$$ \hat{p} = h_{\theta}(x) = \sigma (\theta^{T}x) $$
+\captionof{figure}{Logistic Regression model estimated probability }
+
+The logistic - noted $\sigma$ - is a \textsl{sigmoid function}. 
+
+$$ \sigma(t) = \frac{1}{1 + exp(-t)} $$
+\captionof{figure}{Logistic function}
+
+\newpage
+\subsection{Training and Cost Function}
+The model should estimate high probabilities for positive instances and low probabilities for negative instances. 
+
+$$ c(\theta) = \begin{cases} 
+-log(\hat{p}) & \text{if } y = 1 \\
+-log(1 - \hat{p}) & \text{if } y = 0
+\end{cases}
+$$
+
+This makes sense: $-log(t)$ grows very large when t approaches 0, so cost function is large is model estimates a probability close to 0 for positive instance and will also be large if model estimates a probability close to 1 for a negative instance. 
+
+There is no known closed-form equation to compute the value of $\theta$ that minimizes this cost function. However, since this cost function is convex, Gradient Descent is guaranteed to find the global minimum. 
+
+\subsection{Softmax Regression}
+The Logistic Regression model can be generalized to support multiple classes directly. This is called \textsl{Softmax Regression}. When given an instance $x$, the Softmax Regression model first computes a score $s_{k}(x)$ for each class $k$, then estimates the probability of eachc class by applying the \textsl{softmax function}, also known as the normalized exponential. 
+
+$$ s_{k}(x) = (\theta^{(k)})^{T}x $$
+\captionof{figure}{Softmax score for class k} 
+
+Each class has its own dedicated parameter vector $\theta^{(k)}$. All these vectors are stored as rows in a parameter matrix $\Theta$. 
+
+Once we have computed the score for every class for the instance $x$, we can estimate probability $\hat{p}_{k}$ that the instance belongs to class $k$ by running the score through the softmax function. 
+
+$$ \hat{p}_{k} = \sigma(s(x))_{k} = \frac{exp(s_{k}(x))}{\sum_{j=1}^{K} exp (s_{j}(x))} $$
+\captionof{figure}{Softmax function} 
+
+\begin{itemize}
+	\item $K$ is the number of classes. 
+	\item $s(x)$ is a vector containing scores of each class for the instance $x$. 
+	\item $\sigma(s(x))_k$ is the estimated probability that the instance $x$ belongs to class $k$ given the scores of each class for that instance. 
+\end{itemize}
+
+Softmax Regression is just brute forcing each class to see which outputs the highest probability. Note that Softmax can only output one class at a time. 
+
+
+\end{document}
