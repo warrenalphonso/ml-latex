@@ -22,7 +22,7 @@
 \section{Linear SVM Classification}
 The decision boundary of a Support Vector Machine classifier not only separates the two classes but also stays as far away from the closest training instances as possible. Think of an SVM classifier as fitting the widest possible street between the classes. This is called \textsl{large margin classification}. 
 
-Note that adding more training instances "off the street" will not affect the decision boundary: it is \textbf{fully determined by instances located on the edge} of the street. These instances are called the \textsl{support vectors}. 
+Note that adding more training instances ``off the street" will not affect the decision boundary: it is \textbf{fully determined by instances located on the edge} of the street. These instances are called the \textsl{support vectors}. 
 
 SVMs are sensitive to feature scales. After feature scaling (again using Scikit-Learn's \texttt{StandardScaler}), the decision boundary looks much better. 
 
