@@ -1,0 +1,131 @@
+\documentclass[letterpaper]{article}
+
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage{caption}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Warren Alphonso}
+\lhead{Chapter 7: Ensemble Learning and Random Forests}
+\cfoot{\thepage}
+
+\setlength{\parindent}{0cm}
+
+\title{Chapter 7: Ensemble Learning and Random Forests}
+\author{Warren Alphonso}
+\date{March 2019}
+
+\begin{document}
+
+\maketitle
+
+A group of predictors is called an \textsl{ensemble}. Thus, aggregating multiple predictors is called \textsl{Ensemble Learning}. We can train a group of Decision Tree classifiers on different random subsets of a training set. To make predictions, we just obtain the prediction of all individual trees and then predict the class that gets the most votes. This ensemble of Decision Trees is called a \textsl{Random Forest}. 
+
+\section{Voting Classifiers}
+Even if each classifier is a \textsl{weak learner} (it does only slightly better than random guessing), the ensemble created can still be a \textsl{strong learner} (achieving high accuracy), providing there are sufficient weak learners and they are sufficiently diverse. This is due to the law of large numbers. This only occurs if all classifiers are perfectly independent and make uncorrelated errors, which is not the case since they are trained on the same data. 
+
+\begin{verbatim}
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import VotingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+
+log_clf = LogisticRegression(solver="liblinear", random_state=42)
+rnd_clf = RandomForestClassifier(n_estimators=10, random_state=42)
+svm_clf = SVC(gamma="auto", random_state=42)
+
+voting_clf = VotingClassifier(
+    estimators=[('lr', log_clf), ('rf', rnd_clf), ('svc', svm_clf)],
+    voting='hard')
+    
+voting_clf.fit(X_train, Y_train)
+
+from sklearn.metrics import accuracy_score
+
+for clf in (log_clf, rnd_clf, svm_clf, voting_clf):
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+    print(clf.__class__.__name__, accuracy_score(y_test, y_pred))
+    
+LogisticRegression 0.864
+RandomForestClassifier 0.872
+SVC 0.888
+VotingClassifier 0.896
+\end{verbatim}
+
+If all classifiers are able to estimate class probabilities (ie they have a \texttt{predict\_proba()} method), then we can predict the class with the highest class probability, averaged over all the individual classifiers. This is called \textsl{soft voting}. It often achieves higher performance than hard voting because it gives more weight to highly confident votes. We just need to replace \texttt{voting="hard"} with \texttt{voting="soft"}. If we do this, the above ensemble achieves over 91\% accuracy. 
+
+\section{Bagging and Pasting}
+One way to get a diverse set of classifiers is to use very different training algorithms, like we did in the previous section. Another way is to use the same training algorithm for every predictor, but to train them on different random subsets of the training set. When sampling is performed \textbf{with} replacement, this method is called \textsl{bagging}. When performed \textbf{without} replacement, it is called \textsl{pasting}. It is important to note that predictors can all be trained in parallel via different CPU cores so bagging and pasting are popular since they scale very well. 
+
+\section{Random Forests}
+The Random Forest algorithm introduces extra randomness when growing trees: instead of searching or the very best feature when splitting a node, it searches for the best feature among a random subset of features. This results in greater tree diversity which trades a higher bias for a lower variance. 
+
+\subsection{Extra-Trees}
+When you are growing a tree in a Random Forest, at each node only a random subset of the features is considered for splitting. It is possible to make trees even more random by also using random thresholds for each feature rather than searching for the best possible thresholds. A forest of such extremely random trees is called an \textsl{Extremely Randomized Trees} ensemble. It is hard to tell in advance whether a \texttt{RandomForestClassifier} will perform better than an \texttt{ExtraTreesClassifier}. The only way to know is to try both and compare them using cross-validation. 
+
+\subsection{Feature Importance}
+A great quality of Random Forest is that they make it easy to measure the relative importance of each feature. Scikit-Learn measures a feature's importance by looking at how much the tree nodes that use that feature reduce impurity on average. We can access this result using the \texttt{feature\_importances\_ variable}.
+
+\begin{verbatim}
+from sklearn.datasets import load_iris
+iris = load_iris()
+rnd_clf = RandomForestClassifier(n_estimators=500, n_jobs=-1, random_state=42)
+rnd_clf.fit(iris["data"], iris["target"])
+for name, score in zip(iris["feature_names"], rnd_clf.feature_importances_):
+    print(name, score)
+
+sepal length (cm) 0.11249225099876374
+sepal width (cm) 0.023119288282510326
+petal length (cm) 0.44103046436395765
+petal width (cm) 0.4233579963547681
+\end{verbatim}
+
+\section{Boosting} 
+\textsl{Boosting} refers to any Ensemble method that can combine several weak learners into a strong learner. The idea is to train predictors sequentially, each trying to correct its predecessor. 
+
+\subsection{AdaBoost} 
+\textsl{AdaBoost} (short for Adaptive Boosting) makes each new predictor pay more attention to the training instances that its predecessor underfitted. 
+
+To build an AdaBoost classifier, a first base classifier is trained and used to make predictions on the training set. The relative weight of misclassified training instances is then increased. A second classifier is trained using the updated weights and again it makes predictions on the training set, weights are updated, and so on. Each instance weight $w^{(i)}$ is initially set to $\frac{1}{m}$. A first predictor is trained and its weighted error rate $r_{1}$ is computed on the training set. The predictor's weight $a_{j}$ is then computed. The more accurate the predictor is, the higher its weight will be. If it is just guessing randomly, then its weight will be near zero. If it is worse than random, its weight will be negative. Next, the instance weights are updated. Then, all the instance weights are normalized. Finally, a new predictor is trained using the updated weights and the whole process is repeated. 
+
+To make predictions, AdaBoost simply computes the predictions of all the predictors and weights them using the predictor weights $a_{j}$. 
+
+Scikit-Learn actually uses a multiclass version of AdaBoost called \textsl{SAMME} (which stands for Stagewise Additive Modeling using a Multiclass Exponential loss function). 
+
+\begin{verbatim}
+from sklearn.ensemble import AdaBoostClassifier
+
+ada_clf = AdaBoostClassifier(
+    DecisionTreeClassifier(max_depth=1), n_estimators=200,
+    algorithm="SAMME.R", learning_rate=0.5, random_state=42)
+ada_clf.fit(X_train, y_train)
+\end{verbatim}
+
+\subsection{Gradient Boosting}
+Just like AdaBoost, Gradient Boosting works by sequentially adding predictors to an ensemble, each one correcting its predecessor. Instead of tweaking the instance weights, this method tries to fit the new predictors to the \textsl{residual errors} made by the previous predictor. This is called \textsl{Gradient Tree Boosting} or \textsl{Gradient Boosted Regression Trees}. 
+
+First, let's fit a \texttt{DecisionTreeRegressor} to the training set. Now, train a second \texttt{DecisionTreeRegressor} on the residual errors made by the first predictor. Then, train a third regressor on the residual errors made by the second predictor. Now, we  have an ensemble containing three trees. It can make predictions on new instances simply by adding up the predictions of all the trees. 
+
+A simpler way to train GBRT ensembles is to use Scikit-Learn's \texttt{GradientBoostingRegressor} class. It has hyperparameters to control the growth of the Decision Trees (\texttt{max\_depth, min\_samples\_leaf,} and so on) as well as hyperparameters to control the ensemble training, such as number of trees (\texttt{n\_estimators}). 
+
+\begin{verbatim}
+from sklearn.ensemble import GradientBoostingRegressor
+
+gbrt = GradientBoostingRegressor(max_depth=2, n_estimators=3, learning_rate=1.0, random_state=42)
+gbrt.fit(X, y)
+\end{verbatim}
+
+The \texttt{learning\_rate} hyperparameter scales the contribution of each tree. Setting it to a low value such as \texttt{0.1} means we will need more trees in the ensemble to fit the training data but the predictions will usually generalize better. 
+
+In order to find the optimal number of trees, we can use early stopping. To implement this, use \texttt{staged\_predict()}. It returns an iterator over the predictions made by the ensemble at each stage of training. 
+
+\section{Stacking}
+The final Ensemble method we will discuss is \textsl{stacking} (short for stacked generalization). Instead of trivial functions (such as hard voting) to aggregate the predictions of all predictors, we can instead train a model to perform this aggregation. The final predictor is called a \textsl{blender} or \textsl{meta learner} and takes these predictions as inputs to make the final prediction. 
+
+To train the blender, the training set is split in two subsets. The first subset is used to train the predictors in the first layer. Then, the first layer predictors are used to make predictions on the second set since the predictors never saw these instances during training. For each instance, there are several predicted values (based on how many predictors we have). We now create a new training set using these predicted values as input features and keeping the target values. The blender is trained on this new training set. 
+
+It is actually possible to train several different blenders this way (one using Linear Regression, another using Random Forest Regression, etc) and then we get another layer of blenders. Now, the trick is to split the training set into \textbf{three} subsets: the first one is used to train the first layer, the second one is for the second layer, and the third is for the final blender. 
+
+\end{document}
